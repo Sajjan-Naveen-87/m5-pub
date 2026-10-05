@@ -1,0 +1,6 @@
+build/
+libs/
+coverage/
+jacoco.exec
+*.class
+.DS_Store

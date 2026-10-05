@@ -1,0 +1,161 @@
+openapi: 3.0.3
+info:
+  title: Order API
+  description: >-
+    Four-endpoint order API from the CS5013 Module 5 starter. Orders are
+    held in an in-memory map; there is no persistence layer.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Local development server (not provided by this repository)
+
+paths:
+  /orders:
+    get:
+      summary: List all orders
+      operationId: listOrders
+      responses:
+        '200':
+          description: All orders currently held, possibly an empty list.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderDto'
+        '406':
+          description: >-
+            The request's Accept header cannot be satisfied; this endpoint
+            only produces application/json. Added by hand: the controller
+            body has no client-error path of its own, so this is the
+            framework-level 4xx for the mapping.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      summary: Create a new order for a customer
+      description: >-
+        The order is stored under a server-generated identifier and starts
+        in the NEW status.
+      operationId: createOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201':
+          description: The newly created order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDto'
+        '400':
+          description: >-
+            customerId is null or blank, or amount is null or negative.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /orders/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Server-generated order identifier (a UUID string).
+        schema:
+          type: string
+    get:
+      summary: Fetch a single order by id
+      operationId: getOrder
+      responses:
+        '200':
+          description: The requested order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDto'
+        '404':
+          description: No order exists with the given id.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    delete:
+      summary: Cancel an order
+      description: >-
+        Moves the order to the CANCELLED status. The record is not removed
+        from the store.
+      operationId: cancelOrder
+      responses:
+        '204':
+          description: The order was cancelled. No response body.
+        '409':
+          description: >-
+            The id is unknown, or the order is already in the CANCELLED
+            status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+components:
+  schemas:
+    OrderDto:
+      type: object
+      description: >-
+        Projection of an Order. Note that the Order entity also carries a
+        createdAt timestamp, which this DTO deliberately does not expose.
+      properties:
+        id:
+          type: string
+          description: Server-generated order identifier (a UUID string).
+        customerId:
+          type: string
+          description: Identifier of the customer the order belongs to.
+        amount:
+          type: number
+          format: double
+          description: Order amount in INR.
+        status:
+          type: string
+          description: Lifecycle status. Set to NEW on creation.
+          enum: [NEW, CANCELLED]
+      required: [id, customerId, amount, status]
+
+    CreateOrderRequest:
+      type: object
+      properties:
+        customerId:
+          type: string
+          description: Must be non-null and non-blank.
+          minLength: 1
+        amount:
+          type: number
+          format: double
+          description: Must be non-null and zero or greater.
+          minimum: 0
+      required: [customerId, amount]
+
+    ApiError:
+      type: object
+      description: >-
+        Shape of an error response. TODO - the controller throws
+        ResponseStatusException(status, reason) but no exception handler
+        is present in this repository, so the serialised body is decided
+        by the framework and cannot be confirmed from the code.
+      properties:
+        status:
+          type: integer
+          format: int32
+        message:
+          type: string
